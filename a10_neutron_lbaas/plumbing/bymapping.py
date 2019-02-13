@@ -23,12 +23,34 @@ from a10_neutron_lbaas.plumbing import base
 # The default set of plumbing hooks/scheduler, meant for hardware or manual orchestration
 
 class PlumbingHooks(base.BasePlumbingHooks):
+
     def __init__(self, driver, devices=None, get_devices_func=None, **kwargs):
         super(PlumbingHooks, self).__init__(
             driver, devices=devices, get_devices_func=get_devices_func, **kwargs)
-        self.devices = models.A10Devices.get_all(db_session=db_session)
+        if devices is not None:
+            self.devices = devices
+        elif get_devices_func is not None:
+            self.devices = get_devices_func()
+        else:
+            self.devices = None
+        self.appliance_hash = None
+
+    def _late_init(self):
+        if self.devices is None:
+            self.devices = self.driver.config.get_devices()
+        if self.appliance_hash is None:
+            self.appliance_hash = acos_client.Hash(list(self.devices))
+
+    def _select_device_hash(self, tenant_id):
+        self._late_init()
+
+        # Must return device dict from config.py
+        s = self.appliance_hash.get_server(tenant_id)
+        return self.devices[s]
 
     def _select_device_db(self, tenant_id, db_session=None):
+        self._late_init()
+
         # See if we have a saved tenant
         a10 = models.A10TenantBinding.find_by_tenant_id(tenant_id, db_session=db_session)
         if a10 is not None:
@@ -40,9 +62,12 @@ class PlumbingHooks(base.BasePlumbingHooks):
                     'add it back to config or migrate loadbalancers' %
                     (a10.device_name, tenant_id))
 
-        raise ex.DeviceConfigMissing(
-            'No A10 device mapped to tenant %s, configure to continue.' %
+        raise.DeviceConfigMissing(
+            'No device allocated to tenant %s, allocate using a10 tool to continue.' %
             (tenant_id))
 
     def select_device(self, tenant_id, **kwargs):
-        return self._select_device_db(tenant_id)
+        if self.driver.config.get('use_database'):
+            return self._select_device_db(tenant_id)
+        else:
+            return self._select_device_hash(tenant_id)

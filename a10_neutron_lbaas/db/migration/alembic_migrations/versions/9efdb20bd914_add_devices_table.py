@@ -30,7 +30,7 @@ import sqlalchemy as sa  # noqa
 def upgrade():
     op.create_table(
         'a10_devices',
-        sa.Column('id', sa.Integer, primary_key=True, nullable=False),
+        sa.Column('id', sa.Integer, primary_key=True, nullable=False, autoincrement=True),
         sa.Column('host', sa.String(255), nullable=False),
         sa.Column('username', sa.String(255), nullable=False),
         sa.Column('password', sa.String(255), nullable=False),
