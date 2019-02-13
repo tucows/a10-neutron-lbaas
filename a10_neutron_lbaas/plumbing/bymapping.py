@@ -62,7 +62,7 @@ class PlumbingHooks(base.BasePlumbingHooks):
                     'add it back to config or migrate loadbalancers' %
                     (a10.device_name, tenant_id))
 
-        raise.DeviceConfigMissing(
+        raise ex.DeviceConfigMissing(
             'No device allocated to tenant %s, allocate using a10 tool to continue.' %
             (tenant_id))
 
